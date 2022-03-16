@@ -18,5 +18,7 @@ module Externs {
   function method {:extern} DurationTicksToString(n: int64): string
 
   const DurationTicksPerSecond := 10_000_000;
+  
+  method {:extern} RunCommand(args: seq<string>) returns (result: Result<string, string>)
 }
 

@@ -1,4 +1,5 @@
 
+using System.Diagnostics;
 using System.Numerics;
 using Dafny;
 using Wrappers_Compile;
@@ -8,9 +9,9 @@ using charseq = Dafny.Sequence<char>;
 namespace Externs_Compile {
 
   public partial class __default {
-    public static Dafny.ISequence<icharseq> GetCommandLineArgs() {
+    public static ISequence<icharseq> GetCommandLineArgs() {
       var dafnyArgs = Environment.GetCommandLineArgs().Select(charseq.FromString);
-      return Dafny.Sequence<icharseq>.FromArray(dafnyArgs.ToArray());
+      return Sequence<icharseq>.FromArray(dafnyArgs.ToArray());
     }
     
     public static void SetExitCode(int exitCode) {
@@ -31,7 +32,7 @@ namespace Externs_Compile {
     public static _IResult<BigInteger, icharseq> ParseNat(icharseq dafnyString) {
       var s = dafnyString.ToString();
       try {
-        return Result<BigInteger, icharseq>.create_Success(Int32.Parse(s));
+        return Result<BigInteger, icharseq>.create_Success(int.Parse(s));
       } catch (Exception e) {
         return Result<BigInteger, icharseq>.create_Failure(charseq.FromString(e.Message));
       }
@@ -54,6 +55,34 @@ namespace Externs_Compile {
     public static icharseq DurationTicksToString(long ticks) {
       var timeSpan = TimeSpan.FromTicks(ticks);
       return charseq.FromString(timeSpan.ToString());
+    }
+
+    public static _IResult<icharseq, icharseq> RunCommand(ISequence<icharseq> args) {
+      using var process = new Process();
+
+      var argsArray = args.Elements;
+      process.StartInfo.FileName = argsArray.First().ToString()!;
+      foreach (var argument in argsArray[1..]) {
+        process.StartInfo.ArgumentList.Add(argument.ToString());
+      }
+
+      process.StartInfo.UseShellExecute = false;
+      process.StartInfo.RedirectStandardInput = true;
+      process.StartInfo.RedirectStandardOutput = true;
+      process.StartInfo.RedirectStandardError = true;
+      process.StartInfo.CreateNoWindow = true;
+
+      process.Start();
+      var output = process.StandardOutput.ReadToEnd();
+      var error = process.StandardError.ReadToEnd();
+      process.WaitForExit();
+
+      if (process.ExitCode == 0) {
+        return Result<icharseq, icharseq>.create_Success(charseq.FromString(output));
+      }
+
+      var errorMessage = $"Command failed with exit code {process.ExitCode}. Standard error output:\n{error}";
+      return Result<icharseq, icharseq>.create_Failure(charseq.FromString(errorMessage));
     }
   }
 }
